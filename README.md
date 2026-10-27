@@ -11,15 +11,16 @@ npx skills add division-sign-labs/quotient-signals
 export QUOTIENT_PRO_KEY=qp_…     # from https://app.quotient.social/agents (Pro)
 ```
 
-Then ask your agent: "Show today's signals." · "Buy every football signal on Kalshi, dry run."
+Then ask your agent: "Show today's signals." · "Anything new for me?" · "Buy every football signal on Kalshi, dry run."
 
 - [SKILL.md](SKILL.md): the endpoint, how to read a signal, the rules, the scripts
 - [references/fields.md](references/fields.md): every field the scripts read
 - [references/strategy.md](references/strategy.md): side, edge, ¼ Kelly, one lot, hold to resolution
 - [references/kalshi.md](references/kalshi.md) · [references/bankr.md](references/bankr.md): venue setup
 
-The endpoint is `GET https://app.quotient.social/api/v2/pro/signals` with
-`Authorization: Bearer $QUOTIENT_PRO_KEY`, 50 requests a day per key. OpenAPI:
+The feeds are `GET https://app.quotient.social/api/v2/pro/signals` and
+`GET https://app.quotient.social/api/v2/pro/notifications`, with
+`Authorization: Bearer $QUOTIENT_PRO_KEY`, 50 requests a day per key across both. OpenAPI:
 https://app.quotient.social/api/v2/pro/openapi.json.
 
 Source of truth: `skills/quotient-signals` in the Quotient app repository; this repository is

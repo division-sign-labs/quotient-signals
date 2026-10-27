@@ -121,3 +121,41 @@ live ask of the side when you have one.
   ]
 }
 ```
+
+# Notifications
+
+`GET /api/v2/pro/notifications` returns `{ "as_of", "unread", "pending", "items" }`. `unread`
+counts items the member has not seen in the app; `pending` counts reforecasts still running.
+Each item:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | string | stable for the alert's life: dedupe on it |
+| `kind` | `signal` · `reply` · `forecast_move` · `market_move` · `list_match` · `list_move` · `trader_trade` · `reforecast` · `position_move` · `position_q_move` | what happened |
+| `status` | `published` · `finished` · `failed` · `pending` | `published` for everything but a reforecast job |
+| `title` | string | the game's title or the market question |
+| `href` | string | the page on app.quotient.social, path only |
+| `at` | ISO time | when it happened |
+| `unread` | boolean | not yet seen in the app |
+| `message` | string or null | a reforecast's failure reason |
+| `league`, `pick`, `against`, `marketCents`, `qCents` | signal | the league, what Q picked, the other side, both prices at post in ¢ |
+| `deltaPp`, `previousPct`, `currentPct` | forecast_move, market_move | the move in points, from and to |
+| `signalId`, `marketId` | string | the signal and market the alert is about |
+| `listId`, `listName` | list_match, list_move | the list the market is on |
+| `actor` | reply, trader_trade | `{ name, image }` |
+| `venue`, `side`, `entryCents`, `nowCents`, `movePct` | position_move | the held side, its entry and now in ¢, the signed move in percent |
+| `flipped` | position_q_move | Q crossed 50 against the held side |
+| `qPct` | reforecast | the new Q, whole percent |
+
+```json
+{
+  "as_of": "2026-10-26T18:30:00Z",
+  "unread": 2,
+  "pending": 0,
+  "items": [
+    { "id": "signal:7c1e4b2a-…", "kind": "signal", "status": "published", "title": "Seattle vs Washington", "href": "/signals/7c1e4b2a-…", "at": "2026-10-26T14:02:11Z", "unread": true, "paths": ["/markets/kalshi%3AKXNFLGAME-26OCT04SEAWAS-SEA"], "league": "nfl", "pick": "Seahawks", "against": "Commanders", "marketCents": 46, "qCents": 52 },
+    { "id": "pos:0x1234…:no:3", "kind": "position_move", "status": "published", "title": "Will there be a Russia-Ukraine ceasefire in 2026?", "href": "/markets/789012", "at": "2026-10-26T13:10:00Z", "unread": true, "paths": ["/markets/789012"], "venue": "polymarket", "side": "NO", "entryCents": 56, "nowCents": 62, "movePct": 10.7 },
+    { "id": "fm:3f9d2c1e-…:2", "kind": "forecast_move", "status": "published", "title": "Will there be a Russia-Ukraine ceasefire in 2026?", "href": "/signals/3f9d2c1e-…", "at": "2026-10-26T09:00:00Z", "unread": false, "paths": ["/markets/789012"], "deltaPp": 6, "previousPct": 22, "currentPct": 16, "signalId": "3f9d2c1e-…" }
+  ]
+}
+```

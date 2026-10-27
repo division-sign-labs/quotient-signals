@@ -1,6 +1,6 @@
 ---
 name: quotient-signals
-description: Read Quotient's published prediction-market signals through the Pro endpoint and act on them. List today's signals, filter by sport, league, venue or side, read a signal's side, edge and conviction, and place dry-run or live orders on Kalshi or on Polymarket through Bankr. Use when the user mentions Quotient signals, Q's picks, "buy the football signals", a Pro key (qp_), app.quotient.social/agents, or wants to trade prediction markets from Quotient's calls.
+description: Read Quotient's published prediction-market signals and the member's alerts through the Pro feeds and act on them. List today's signals, read new notifications, filter by sport, league, venue or side, read a signal's side, edge and conviction, and place dry-run or live orders on Kalshi or on Polymarket through Bankr. Use when the user mentions Quotient signals, Q's picks, "buy the football signals", a Pro key (qp_), app.quotient.social/agents, or wants to trade prediction markets from Quotient's calls.
 license: Apache-2.0
 compatibility: Needs curl, jq and Node 18+, network access to app.quotient.social, and a Quotient Pro key in QUOTIENT_PRO_KEY. Trading needs a Kalshi API key or a Bankr API key.
 metadata:
@@ -21,18 +21,22 @@ Everything here reads one endpoint with the user's Pro key. The key is `qp_` and
 characters, created at https://app.quotient.social/agents, and lives in `QUOTIENT_PRO_KEY`.
 Never print it, log it, or put it in a prompt.
 
-## The endpoint
+## The endpoints
 
 ```
-GET https://app.quotient.social/api/v2/pro/signals
-Authorization: Bearer $QUOTIENT_PRO_KEY
+GET https://app.quotient.social/api/v2/pro/signals          every open signal
+GET https://app.quotient.social/api/v2/pro/notifications    the member's alerts
+Authorization: Bearer $QUOTIENT_PRO_KEY                      (or ?token=qp_… on either URL)
 ```
 
-- 50 requests a day per key, UTC. Every reply carries `X-RateLimit-Limit`,
-  `X-RateLimit-Remaining` and `X-RateLimit-Reset` (Unix seconds, 00:00 UTC).
-- The body is `{ "signals": [ … ] }`: every signal that matches, in one page. No pagination.
-- The body is the Quotient API's `GET /api/v1/signals` contract, unchanged. Field reference:
-  [references/fields.md](references/fields.md). OpenAPI:
+- 50 requests a day per key, UTC, shared by both feeds. Every reply carries
+  `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset` (Unix seconds, 00:00 UTC).
+- Signals: `{ "signals": [ … ] }`, every signal that matches, in one page, no pagination. The
+  body is the Quotient API's `GET /api/v1/signals` contract, unchanged.
+- Notifications: `{ "as_of", "unread", "pending", "items": [ … ] }`, the list the app's bell
+  shows (new signals, replies, forecast and market moves, list matches and moves, trader trades,
+  reforecasts, position moves), the last 48 hours, newest first, 20 at most, no parameters.
+- Field reference: [references/fields.md](references/fields.md). OpenAPI:
   https://app.quotient.social/api/v2/pro/openapi.json.
 
 | Parameter | Values |
@@ -78,10 +82,19 @@ highest), `entry_eligible` (an entry now), `entry_status` (why not: `in_play`, `
 `status=active` already applies Quotient's entry policy (price, edge, deadline, adverse move).
 Do not recompute eligibility; read `entry_status` when a row is excluded.
 
+## Reading a notification
+
+Each item has `kind`, `id` (stable: dedupe on it), `title`, `href` (a page on
+app.quotient.social), `at` and `unread`. A `signal` item carries `pick`, `against`, `league`,
+`marketCents` and `qCents`; a `position_move` carries `venue`, `side`, `entryCents`, `nowCents`
+and `movePct`; a `forecast_move` or `market_move` carries `deltaPp`, `previousPct` and
+`currentPct`; a `position_q_move` carries `flipped`. Fetch with `scripts/notifications.sh`.
+
 ## Rules
 
-1. **One call returns everything.** Fetch with `scripts/signals.sh`, which caches the reply for
-   30 minutes per query and prints the remaining quota. Filter the cached JSON with `jq`.
+1. **One call returns everything.** Fetch with `scripts/signals.sh` (30-minute cache) or
+   `scripts/notifications.sh` (10-minute cache); both print the remaining quota. Filter the
+   cached JSON with `jq`.
 2. **Filter server-side only by `topic`, `venue`, `side`, `status`.** Everything else (a
    conviction floor, a team, an edge floor) is a local `jq` pass over one reply.
 3. **Never call once per signal, and never poll faster than every 30 minutes.** 48 calls a day
@@ -115,7 +128,8 @@ variables; no script prints one.
 
 | Script | Does |
 |---|---|
-| `scripts/signals.sh [--topic T] [--venue V] [--side S] [--status S] [--min-conviction N] [--min-edge PP] [--fresh] [--json]` | the cached read, a one-line-per-signal table or the JSON |
+| `scripts/signals.sh [--topic T] [--venue V] [--side S] [--status S] [--min-conviction N] [--min-edge PP] [--fresh] [--json]` | the cached signals read, a one-line-per-signal table or the JSON |
+| `scripts/notifications.sh [--unread] [--kind K] [--fresh] [--json]` | the cached notifications read, one line per alert or the JSON |
 | `scripts/trade-kalshi.mjs --equity USD [--topic T] [--max-usd 25] [--kelly 0.25] [--min-edge 5] [--demo] [--execute]` | Kalshi listings → IOC limit orders at the live ask |
 | `scripts/trade-bankr.mjs --budget USD [--topic T] [--max-usd 25] [--min-edge 5] [--execute]` | Polymarket listings → Bankr prompts, polled and verified |
 | `scripts/watch.sh [--every 30] [-- <command>]` | the read on a timer, a hook on change, quota-aware |
@@ -128,6 +142,13 @@ scripts/signals.sh
 ```
 Reads the cache or the endpoint, prints one line per signal: side, market, cost, Q, edge,
 conviction, venue. Then summarize: how many, the top three by edge, and anything `in_play`.
+
+**"Anything new for me?"**
+```bash
+scripts/notifications.sh --unread
+```
+One line per unread alert: time, kind, the market, the numbers. Summarize by kind: new signals
+first, then moves on held positions, then the rest.
 
 **"Which football games does Q like this week on Kalshi?"**
 ```bash
